@@ -132,6 +132,21 @@ fn today() -> String {
     Local::now().date_naive().format("%Y-%m-%d").to_string()
 }
 
+/// Truncate a string to `max` characters, adding an ellipsis if truncated.
+fn truncate(s: &str, max: usize) -> String {
+    if max == 0 {
+        return String::new();
+    }
+    let count = s.chars().count();
+    if count <= max {
+        s.to_string()
+    } else {
+        let mut out: String = s.chars().take(max - 1).collect();
+        out.push('…');
+        out
+    }
+}
+
 fn db_path() -> PathBuf {
     // Determine where to store the local SQLite DB.
     // On Windows `LOCALAPPDATA` will be used; on Unix-like systems `HOME` is used.
@@ -581,10 +596,17 @@ impl App {
             .cloned()
             .collect();
 
+        // Limits for visible characters per column. These keep the grid tidy while
+        // allowing horizontal scrolling for full content (via hover/tooltip if desired).
+        const COMPANY_MAX: usize = 40;
+        const TITLE_MAX: usize = 60;
+        const LOCATION_MAX: usize = 30;
+        const STATUS_MAX: usize = 18;
+
         egui::ScrollArea::both().show(ui, |ui| {
             egui::Grid::new("apps")
                 .striped(true)
-                .min_col_width(90.0)
+                .min_col_width(60.0)
                 .show(ui, |ui| {
                     for h in ["Company", "Job", "Location", "Date", "Status", "Actions"] {
                         ui.strong(h);
@@ -592,11 +614,11 @@ impl App {
                     ui.end_row();
 
                     for a in rows {
-                        ui.label(&a.company);
-                        ui.label(&a.title);
-                        ui.label(&a.location);
+                        ui.add(egui::Label::new(truncate(&a.company, COMPANY_MAX))).on_hover_text(&a.company);
+                        ui.add(egui::Label::new(truncate(&a.title, TITLE_MAX))).on_hover_text(&a.title);
+                        ui.add(egui::Label::new(truncate(&a.location, LOCATION_MAX))).on_hover_text(&a.location);
                         ui.label(&a.application_date);
-                        ui.label(a.status.as_str());
+                        ui.add(egui::Label::new(truncate(a.status.as_str(), STATUS_MAX))).on_hover_text(a.status.as_str());
                         ui.horizontal(|ui| {
                             if ui.button("Open").clicked() {
                                 self.selected_id = Some(a.id);
@@ -792,10 +814,14 @@ impl App {
             }
             ui.separator();
             ui.heading("By status");
-            for s in Status::ALL {
-                let n = filtered.iter().filter(|a| a.status == s).count();
-                ui.label(format!("{:<24} {}", s.as_str(), n));
-            }
+            egui::Grid::new("analytics_status_grid").striped(true).show(ui, |ui| {
+                for s in Status::ALL {
+                    let n = filtered.iter().filter(|a| a.status == s).count();
+                    ui.label(s.as_str());
+                    ui.label(RichText::new(n.to_string()).monospace());
+                    ui.end_row();
+                }
+            });
 
             ui.separator();
             ui.heading("By location");
@@ -808,9 +834,13 @@ impl App {
                 })
                 .or_default() += 1;
             }
-            for (k, v) in map {
-                ui.label(format!("{:<24} {}", k, v));
-            }
+            egui::Grid::new("analytics_location_grid").striped(true).show(ui, |ui| {
+                for (k, v) in map {
+                    ui.label(k);
+                    ui.label(RichText::new(v.to_string()).monospace());
+                    ui.end_row();
+                }
+            });
 
             ui.separator();
             ui.heading("By company");
@@ -818,9 +848,13 @@ impl App {
             for a in &filtered {
                 *company_map.entry(a.company.clone()).or_default() += 1;
             }
-            for (k, v) in company_map {
-                ui.label(format!("{:<24} {}", k, v));
-            }
+            egui::Grid::new("analytics_company_grid").striped(true).show(ui, |ui| {
+                for (k, v) in company_map {
+                    ui.label(k);
+                    ui.label(RichText::new(v.to_string()).monospace());
+                    ui.end_row();
+                }
+            });
 
             ui.separator();
             ui.heading("Applications by date");
@@ -828,9 +862,13 @@ impl App {
             for a in &filtered {
                 *date_map.entry(a.application_date.clone()).or_default() += 1;
             }
-            for (k, v) in date_map {
-                ui.label(format!("{}  {}", k, v));
-            }
+            egui::Grid::new("analytics_date_grid").striped(true).show(ui, |ui| {
+                for (k, v) in date_map {
+                    ui.label(k);
+                    ui.label(RichText::new(v.to_string()).monospace());
+                    ui.end_row();
+                }
+            });
         });
     }
 
