@@ -863,6 +863,19 @@ impl eframe::App for App {
     }
 }
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> eframe::Result {
+    // Window sizing: `with_inner_size` sets the starting window size (1200x760).
+    // `with_min_inner_size` prevents resizing smaller than 900x600. Tweak these values
+    // to change the app's initial or minimum dimensions.
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1200.0, 760.0])
+            .with_min_inner_size([900.0, 600.0]),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Job Hunt Tracker",
+        options,
+        Box::new(|_cc| Ok(Box::new(App::new()))),
+    )
 }
