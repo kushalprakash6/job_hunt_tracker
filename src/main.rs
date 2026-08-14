@@ -1,7 +1,12 @@
 use chrono::{Duration, Local, NaiveDate};
 use eframe::egui::{self, Color32, RichText};
 use rusqlite::{Connection, params};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
+
+fn app_icon_data() -> egui::IconData {
+    eframe::icon_data::from_png_bytes(include_bytes!("../licons/icon.png"))
+        .expect("valid app icon PNG")
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Status {
@@ -917,7 +922,8 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1200.0, 760.0])
-            .with_min_inner_size([900.0, 600.0]),
+            .with_min_inner_size([900.0, 600.0])
+            .with_icon(Arc::new(app_icon_data())),
         ..Default::default()
     };
     eframe::run_native(

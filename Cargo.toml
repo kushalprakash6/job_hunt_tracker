@@ -3,6 +3,14 @@ name = "job_hunt_tracker"
 version = "0.1.0"
 edition = "2024"
 authors = ["Kushal Prakash"]
+description = "Job application tracking dashboard"
+
+[package.metadata.bundle]
+name = "Job Hunt Tracker"
+identifier = "com.kushalprakash.jobhunttracker"
+icon = ["icons/icon.png"]
+copyright = "Copyright © 2026 Kushal Prakash"
+category = "public.app-category.productivity"
 
 [dependencies]
 eframe = "0.35.0"
