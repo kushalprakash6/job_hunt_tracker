@@ -1,5 +1,7 @@
-use rusqlite::{params, Connection};
 use chrono::{Duration, Local, NaiveDate};
+use eframe::egui::{self, Color32, RichText};
+use rusqlite::{params, Connection};
+use std::path::PathBuf;
 
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -13,6 +15,39 @@ enum Status {
     Rejected,
     ReminderSent,
 }
+
+impl Status {
+    const ALL: [Status; 8] = [
+        Status::NotApplied,
+        Status::Applied,
+        Status::FirstCallTelephone,
+        Status::FirstCallVideo,
+        Status::FurtherRounds,
+        Status::Selected,
+        Status::Rejected,
+        Status::ReminderSent,
+    ];
+
+    /// Storing in DB as string
+    fn as_str(self) -> &'static str {
+        match self {
+            Status::NotApplied => "Not Applied",
+            Status::Applied => "Applied",
+            Status::FirstCallTelephone => "First Call (Telephone)",
+            Status::FirstCallVideo => "First Call (Video)",
+            Status::FurtherRounds => "Further Rounds",
+            Status::Selected => "Selected",
+            Status::Rejected => "Rejected",
+            Status::ReminderSent => "Reminder Sent",
+        }
+    }
+
+    /// Read from DB as string
+    fn from_str(s: &str) -> Self {
+        Status::ALL.into_iter().find(|x| x.as_str() == s).unwrap_or(Status::Applied)
+    }
+}
+
 
 // `Application` represents a single job application record stored in SQLite.
 // If you change the fields here, update the DB schema in `App::new()` accordingly.
@@ -81,7 +116,14 @@ struct App {
 fn today() -> String {
      Local::now().date_naive().format("%Y-%m-%d").to_string() 
     }
-
+    
+fn db_path() -> PathBuf {
+    // Determine where to store the local SQLite DB.
+    // On Windows `LOCALAPPDATA` will be used; on Unix-like systems `HOME` is used.
+    // Change this function if you want the DB in a custom location.
+    let base = std::env::var_os("LOCALAPPDATA").or_else(|| std::env::var_os("HOME")).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    base.join("JobHuntTracker").join("jobs.db")
+}
 
 fn main() {
     println!("Hello, world!");
