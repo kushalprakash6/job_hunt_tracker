@@ -581,7 +581,7 @@ impl App {
             .cloned()
             .collect();
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
+        egui::ScrollArea::both().show(ui, |ui| {
             egui::Grid::new("apps")
                 .striped(true)
                 .min_col_width(90.0)
@@ -693,20 +693,22 @@ impl App {
             self.followup_days,
             f.len()
         ));
-        for a in f {
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.strong(format!("{} — {}", a.company, a.title));
-                ui.label(format!(
-                    "last contact: {}",
-                    a.last_contact.unwrap_or(a.application_date)
-                ));
-                if ui.button("Open").clicked() {
-                    self.selected_id = Some(a.id);
-                    self.page = Page::Detail;
-                }
-            });
-        }
+        egui::ScrollArea::both().show(ui, |ui| {
+            for a in f {
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.strong(format!("{} — {}", a.company, a.title));
+                    ui.label(format!(
+                        "last contact: {}",
+                        a.last_contact.unwrap_or(a.application_date)
+                    ));
+                    if ui.button("Open").clicked() {
+                        self.selected_id = Some(a.id);
+                        self.page = Page::Detail;
+                    }
+                });
+            }
+        });
     }
 
     fn analytics_page(&mut self, ui: &mut egui::Ui) {
@@ -723,111 +725,113 @@ impl App {
             }
         });
 
-        let filtered = self.filter_analytics_applications();
-        let total = filtered
-            .iter()
-            .filter(|a| a.status != Status::NotApplied)
-            .count();
-        ui.label(format!("{} applications submitted", total));
+        egui::ScrollArea::both().show(ui, |ui| {
+            let filtered = self.filter_analytics_applications();
+            let total = filtered
+                .iter()
+                .filter(|a| a.status != Status::NotApplied)
+                .count();
+            ui.label(format!("{} applications submitted", total));
 
-        ui.heading("Funnel");
-        let stages = [
-            (
-                "Applications",
-                filtered
-                    .iter()
-                    .filter(|a| a.status != Status::NotApplied)
-                    .count(),
-            ),
-            (
-                "First Call",
-                filtered
-                    .iter()
-                    .filter(|a| {
-                        matches!(
-                            a.status,
-                            Status::FirstCallTelephone
-                                | Status::FirstCallVideo
-                                | Status::FurtherRounds
-                                | Status::Selected
-                        )
-                    })
-                    .count(),
-            ),
-            (
-                "Further Rounds",
-                filtered
-                    .iter()
-                    .filter(|a| matches!(a.status, Status::FurtherRounds | Status::Selected))
-                    .count(),
-            ),
-            (
-                "Selected",
-                filtered
-                    .iter()
-                    .filter(|a| a.status == Status::Selected)
-                    .count(),
-            ),
-        ];
-        let max = stages.iter().map(|x| x.1).max().unwrap_or(1).max(1) as f32;
-        for (name, n) in stages {
-            ui.horizontal(|ui| {
-                ui.label(format!("{:<16}", name));
-                let bar_width = ui.available_width() * ((n as f32) / max).max(0.02);
-                let (rect, _) =
-                    ui.allocate_exact_size(egui::vec2(bar_width, 28.0), egui::Sense::hover());
-                ui.painter()
-                    .rect_filled(rect, 4.0, ui.visuals().selection.bg_fill);
-                ui.painter().rect_stroke(
-                    rect,
-                    4.0,
-                    ui.visuals().widgets.active.bg_stroke,
-                    egui::StrokeKind::Inside,
-                );
-                ui.label(n.to_string());
-            });
-        }
-        ui.separator();
-        ui.heading("By status");
-        for s in Status::ALL {
-            let n = filtered.iter().filter(|a| a.status == s).count();
-            ui.label(format!("{:<24} {}", s.as_str(), n));
-        }
+            ui.heading("Funnel");
+            let stages = [
+                (
+                    "Applications",
+                    filtered
+                        .iter()
+                        .filter(|a| a.status != Status::NotApplied)
+                        .count(),
+                ),
+                (
+                    "First Call",
+                    filtered
+                        .iter()
+                        .filter(|a| {
+                            matches!(
+                                a.status,
+                                Status::FirstCallTelephone
+                                    | Status::FirstCallVideo
+                                    | Status::FurtherRounds
+                                    | Status::Selected
+                            )
+                        })
+                        .count(),
+                ),
+                (
+                    "Further Rounds",
+                    filtered
+                        .iter()
+                        .filter(|a| matches!(a.status, Status::FurtherRounds | Status::Selected))
+                        .count(),
+                ),
+                (
+                    "Selected",
+                    filtered
+                        .iter()
+                        .filter(|a| a.status == Status::Selected)
+                        .count(),
+                ),
+            ];
+            let max = stages.iter().map(|x| x.1).max().unwrap_or(1).max(1) as f32;
+            for (name, n) in stages {
+                ui.horizontal(|ui| {
+                    ui.label(format!("{:<16}", name));
+                    let bar_width = ui.available_width() * ((n as f32) / max).max(0.02);
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(bar_width, 28.0), egui::Sense::hover());
+                    ui.painter()
+                        .rect_filled(rect, 4.0, ui.visuals().selection.bg_fill);
+                    ui.painter().rect_stroke(
+                        rect,
+                        4.0,
+                        ui.visuals().widgets.active.bg_stroke,
+                        egui::StrokeKind::Inside,
+                    );
+                    ui.label(n.to_string());
+                });
+            }
+            ui.separator();
+            ui.heading("By status");
+            for s in Status::ALL {
+                let n = filtered.iter().filter(|a| a.status == s).count();
+                ui.label(format!("{:<24} {}", s.as_str(), n));
+            }
 
-        ui.separator();
-        ui.heading("By location");
-        let mut map = std::collections::BTreeMap::<String, usize>::new();
-        for a in &filtered {
-            *map.entry(if a.location.is_empty() {
-                "Unknown".into()
-            } else {
-                a.location.clone()
-            })
-            .or_default() += 1;
-        }
-        for (k, v) in map {
-            ui.label(format!("{:<24} {}", k, v));
-        }
+            ui.separator();
+            ui.heading("By location");
+            let mut map = std::collections::BTreeMap::<String, usize>::new();
+            for a in &filtered {
+                *map.entry(if a.location.is_empty() {
+                    "Unknown".into()
+                } else {
+                    a.location.clone()
+                })
+                .or_default() += 1;
+            }
+            for (k, v) in map {
+                ui.label(format!("{:<24} {}", k, v));
+            }
 
-        ui.separator();
-        ui.heading("By company");
-        let mut company_map = std::collections::BTreeMap::<String, usize>::new();
-        for a in &filtered {
-            *company_map.entry(a.company.clone()).or_default() += 1;
-        }
-        for (k, v) in company_map {
-            ui.label(format!("{:<24} {}", k, v));
-        }
+            ui.separator();
+            ui.heading("By company");
+            let mut company_map = std::collections::BTreeMap::<String, usize>::new();
+            for a in &filtered {
+                *company_map.entry(a.company.clone()).or_default() += 1;
+            }
+            for (k, v) in company_map {
+                ui.label(format!("{:<24} {}", k, v));
+            }
 
-        ui.separator();
-        ui.heading("Applications by date");
-        let mut date_map = std::collections::BTreeMap::<String, usize>::new();
-        for a in &filtered {
-            *date_map.entry(a.application_date.clone()).or_default() += 1;
-        }
-        for (k, v) in date_map {
-            ui.label(format!("{}  {}", k, v));
-        }
+            ui.separator();
+            ui.heading("Applications by date");
+            let mut date_map = std::collections::BTreeMap::<String, usize>::new();
+            for a in &filtered {
+                *date_map.entry(a.application_date.clone()).or_default() += 1;
+            }
+            for (k, v) in date_map {
+                ui.label(format!("{}  {}", k, v));
+            }
+        });
     }
 
     fn settings_page(&mut self, ui: &mut egui::Ui) {
@@ -840,6 +844,11 @@ impl App {
         ui.separator();
         ui.label(format!("Database: {}", db_path().display()));
         ui.label("The database is local SQLite data. Back it up by copying the jobs.db file while the application is closed.");
+        ui.separator();
+        ui.heading("About");
+        ui.label(format!("Author: {}", env!("CARGO_PKG_AUTHORS")));
+        ui.label(format!("Version: {}", env!("CARGO_PKG_VERSION")));
+        ui.label("© 2026 Kushal Prakash. All rights reserved.");
     }
     // `followup_days` UI uses a drag value constrained to 1..=90 days. Adjust the range here
     // if you want to allow longer or shorter follow-up periods.

@@ -2,6 +2,7 @@
 name = "job_hunt_tracker"
 version = "0.1.0"
 edition = "2024"
+authors = ["Kushal Prakash"]
 
 [dependencies]
 eframe = "0.35.0"
