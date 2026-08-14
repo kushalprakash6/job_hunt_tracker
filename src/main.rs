@@ -4,7 +4,7 @@ use rusqlite::{Connection, params};
 use std::{path::PathBuf, sync::Arc};
 
 fn app_icon_data() -> egui::IconData {
-    eframe::icon_data::from_png_bytes(include_bytes!("../licons/icon.png"))
+    eframe::icon_data::from_png_bytes(include_bytes!("../icons/icon.png"))
         .expect("valid app icon PNG")
 }
 
