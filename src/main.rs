@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection};
+use chrono::{Duration, Local, NaiveDate};
 
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -74,6 +75,14 @@ struct App {
     analysis_from: String,
     analysis_to: String,
 }
+
+/// Function to get todays date
+/// 
+fn today() -> String {
+     Local::now().date_naive().format("%Y-%m-%d").to_string() 
+    }
+
+
 fn main() {
     println!("Hello, world!");
 }
