@@ -1,5 +1,9 @@
 # Job Hunt Tracker
 
+<p align="center">
+  <img src="icons/icon.png" alt="Job Hunt Tracker app icon" width="180" />
+</p>
+
 A desktop app for tracking job applications, follow-ups, and progress across the hiring process.
 
 ## Features
@@ -21,18 +25,44 @@ A desktop app for tracking job applications, follow-ups, and progress across the
 
 ## Requirements
 
-- Rust 1.85+ (or a current stable version compatible with this project)
+- Rust stable toolchain (current stable recommended)
 - Cargo
-- macOS (the app is configured for native macOS desktop use)
-- Optional: Xcode Command Line Tools if your environment needs them
+- Git
+- A desktop OS: macOS, Linux, or Windows
+
+### Platform-specific prerequisites
+
+#### macOS
+
+- Xcode Command Line Tools
+- Optional: cargo-bundle for generating .app and .dmg bundles
+
+#### Linux
+
+- Build tools such as gcc / make / pkg-config
+- Libraries required by native GUI dependencies
+- Often: `libxcb`, `libxkbcommon`, and related X11/Wayland packages if your distro requires them
+
+#### Windows
+
+- MSVC Build Tools or Rust's MSVC toolchain
+- Git Bash, PowerShell, or Command Prompt
 
 ## Install Rust
 
-If Rust is not installed:
+### macOS / Linux
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
+```
+
+### Windows
+
+Download and install Rust via rustup:
+
+```powershell
+https://rustup.rs/
 ```
 
 Then verify:
@@ -49,46 +79,69 @@ git clone <your-repo-url>
 cd job_hunt_tracker
 ```
 
-## Run the app locally
+## Run on macOS
 
 ```bash
 cargo run
 ```
 
-For a production build:
+Release build:
 
 ```bash
 cargo build --release
 ./target/release/job_hunt_tracker
 ```
 
-## Build a standalone macOS app bundle
-
-This app is set up to bundle into a macOS app and DMG using cargo-bundle.
-
-Install the bundler:
+Bundle into a macOS app:
 
 ```bash
 cargo install cargo-bundle
-```
-
-Then build the app bundle:
-
-```bash
 cargo bundle --release
 ```
 
-The output will be created in:
+Output:
 
 ```bash
 target/release/bundle/osx/
-```
-
-and the DMG in:
-
-```bash
 target/release/bundle/dmg/
 ```
+
+## Run on Linux
+
+```bash
+cargo run
+```
+
+Release build:
+
+```bash
+cargo build --release
+./target/release/job_hunt_tracker
+```
+
+If the app fails to start because of missing native libraries, install the required GUI dependencies for your distro, for example:
+
+```bash
+sudo apt update
+sudo apt install build-essential pkg-config libx11-dev libxkbcommon-dev libwayland-client0 libwayland-cursor0 libwayland-egl1-mesa
+```
+
+## Run on Windows
+
+From PowerShell or Command Prompt:
+
+```powershell
+cargo run
+```
+
+Release build:
+
+```powershell
+cargo build --release
+.\target\release\job_hunt_tracker.exe
+```
+
+If you want a Windows installer, use a packaging tool compatible with your setup, or distribute the built `.exe` directly.
 
 ## Project structure
 
