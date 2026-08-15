@@ -152,6 +152,61 @@ fn truncate(s: &str, max: usize) -> String {
     }
 }
 
+fn sanitize_text(value: &str, max_len: usize) -> String {
+    let cleaned: String = value
+        .chars()
+        .filter(|ch| !ch.is_control() && *ch != '\0')
+        .collect();
+    let trimmed = cleaned.trim();
+    let limited = if trimmed.chars().count() > max_len {
+        trimmed.chars().take(max_len).collect::<String>()
+    } else {
+        trimmed.to_string()
+    };
+    limited
+}
+
+fn validate_text_field(field_name: &str, value: &str, max_len: usize) -> Result<String, String> {
+    let sanitized = sanitize_text(value, max_len);
+    let lowered = sanitized.to_ascii_lowercase();
+    let suspicious_patterns = [
+        "drop table",
+        "delete from",
+        "insert into",
+        "update applications",
+        "update activities",
+        "alter table",
+        "truncate table",
+        "union select",
+        "or 1=1",
+        "--",
+        "/*",
+        "*/",
+    ];
+
+    if suspicious_patterns.iter().any(|pattern| lowered.contains(pattern)) {
+        return Err(format!("Invalid {} value detected.", field_name));
+    }
+
+    Ok(sanitized)
+}
+
+fn validate_form(form: &Form) -> Result<(), String> {
+    if form.company.trim().is_empty() || form.title.trim().is_empty() {
+        return Err("Company and job title are required.".to_string());
+    }
+
+    validate_text_field("company", &form.company, 200)?;
+    validate_text_field("location", &form.location, 200)?;
+    validate_text_field("title", &form.title, 200)?;
+    validate_text_field("link", &form.link, 2048)?;
+    validate_text_field("contact_name", &form.contact_name, 200)?;
+    validate_text_field("contact_phone", &form.contact_phone, 100)?;
+    validate_text_field("contact_email", &form.contact_email, 200)?;
+    validate_text_field("notes", &form.notes, 5000)?;
+    Ok(())
+}
+
 fn db_path() -> PathBuf {
     // Determine where to store the local SQLite DB.
     // On Windows `LOCALAPPDATA` will be used; on Unix-like systems `HOME` is used.
@@ -244,41 +299,54 @@ impl App {
     }
 
     fn save_form(&mut self) {
-        if self.form.company.trim().is_empty() || self.form.title.trim().is_empty() {
-            self.message = Some("Company and job title are required.".into());
-            return;
+        match validate_form(&self.form) {
+            Ok(()) => {}
+            Err(msg) => {
+                self.message = Some(msg);
+                return;
+            }
         }
+
         let now = today();
+        let company = sanitize_text(&self.form.company, 200);
+        let location = sanitize_text(&self.form.location, 200);
+        let title = sanitize_text(&self.form.title, 200);
+        let link = sanitize_text(&self.form.link, 2048);
+        let contact_name = sanitize_text(&self.form.contact_name, 200);
+        let contact_phone = sanitize_text(&self.form.contact_phone, 100);
+        let contact_email = sanitize_text(&self.form.contact_email, 200);
+        let notes = sanitize_text(&self.form.notes, 5000);
+
         match self.editing_id {
             Some(id) => {
                 self.db.execute(
                     "UPDATE applications SET company=?1,location=?2,title=?3,link=?4,application_date=?5,status=?6,contact_name=?7,contact_phone=?8,contact_email=?9,notes=?10,updated_at=?11 WHERE id=?12", 
-                    params![self.form.company.trim(),
-                    self.form.location.trim(),
-                    self.form.title.trim(),
-                    self.form.link.trim(),
+                    params![company,
+                    location,
+                    title,
+                    link,
                     self.form.application_date,
                     self.form.status.as_str(),
-                    self.form.contact_name.trim(),
-                    self.form.contact_phone.trim(),
-                    self.form.contact_email.trim(),
-                    self.form.notes.trim(),
+                    contact_name,
+                    contact_phone,
+                    contact_email,
+                    notes,
                     now,id])
                     .unwrap();
             }
             None => {
                 self.db.execute(
                     "INSERT INTO applications(company,location,title,link,application_date,status,contact_name,contact_phone,contact_email,notes,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?11)", 
-                    params![self.form.company.trim(),
-                    self.form.location.trim(),
-                    self.form.title.trim(),
-                    self.form.link.trim(),
+                    params![company,
+                    location,
+                    title,
+                    link,
                     self.form.application_date,
                     self.form.status.as_str(),
-                    self.form.contact_name.trim(),
-                    self.form.contact_phone.trim(),
-                    self.form.contact_email.trim(),
-                    self.form.notes.trim(),
+                    contact_name,
+                    contact_phone,
+                    contact_email,
+                    notes,
                     now])
                     .unwrap();
                 let id = self.db.last_insert_rowid();
@@ -327,6 +395,11 @@ impl App {
     }
 
     fn add_activity(&mut self, id: i64, kind: &str) {
+        let kind = match validate_text_field("activity type", kind, 100) {
+            Ok(value) => value,
+            Err(_) => return,
+        };
+
         self.db.execute(
             "INSERT INTO activities(application_id,activity_type,activity_date,notes) VALUES(?1,?2,?3,'')",
             params![id,kind,today()])
@@ -912,6 +985,23 @@ impl eframe::App for App {
             Page::Analytics => self.analytics_page(ui),
             Page::Settings => self.settings_page(ui),
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitizes_control_characters() {
+        let value = sanitize_text("  some\u{0000}text\n  ", 50);
+        assert_eq!(value, "sometext");
+    }
+
+    #[test]
+    fn rejects_sql_injection_patterns() {
+        let err = validate_text_field("company", "'; DROP TABLE applications; --", 200).unwrap_err();
+        assert!(err.contains("Invalid company value detected"));
     }
 }
 
