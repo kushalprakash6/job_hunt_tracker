@@ -364,6 +364,16 @@ impl App {
         self.editing_id = None;
     }
 
+    fn update_status(&mut self, id: i64, status: Status) {
+        self.db
+            .execute(
+                "UPDATE applications SET status=?1,updated_at=?2 WHERE id=?3",
+                params![status.as_str(), today(), id],
+            )
+            .unwrap();
+        self.reload();
+    }
+
     fn begin_new(&mut self) {
         self.form = Form::default();
         self.editing_id = None;
@@ -692,11 +702,40 @@ impl App {
                     ui.end_row();
 
                     for a in rows {
-                        ui.add(egui::Label::new(truncate(&a.company, COMPANY_MAX))).on_hover_text(&a.company);
-                        ui.add(egui::Label::new(truncate(&a.title, TITLE_MAX))).on_hover_text(&a.title);
-                        ui.add(egui::Label::new(truncate(&a.location, LOCATION_MAX))).on_hover_text(&a.location);
-                        ui.label(&a.application_date);
-                        ui.add(egui::Label::new(truncate(a.status.as_str(), STATUS_MAX))).on_hover_text(a.status.as_str());
+                        let open_row = |response: egui::Response, this: &mut Self| {
+                            if response.clicked() {
+                                this.selected_id = Some(a.id);
+                                this.page = Page::Detail;
+                            }
+                        };
+
+                        open_row(
+                            ui.add(egui::Label::new(truncate(&a.company, COMPANY_MAX)).sense(egui::Sense::click()))
+                                .on_hover_text(&a.company),
+                            self,
+                        );
+                        open_row(
+                            ui.add(egui::Label::new(truncate(&a.title, TITLE_MAX)).sense(egui::Sense::click()))
+                                .on_hover_text(&a.title),
+                            self,
+                        );
+                        open_row(
+                            ui.add(egui::Label::new(truncate(&a.location, LOCATION_MAX)).sense(egui::Sense::click()))
+                                .on_hover_text(&a.location),
+                            self,
+                        );
+                        open_row(ui.add(egui::Label::new(&a.application_date).sense(egui::Sense::click())), self);
+                        let mut status = a.status;
+                        egui::ComboBox::from_id_salt(format!("application_status_{}", a.id))
+                            .selected_text(truncate(status.as_str(), STATUS_MAX))
+                            .show_ui(ui, |ui| {
+                                for option in Status::ALL {
+                                    ui.selectable_value(&mut status, option, option.as_str());
+                                }
+                            });
+                        if status != a.status {
+                            self.update_status(a.id, status);
+                        }
                         ui.horizontal(|ui| {
                             if ui.button("Open").clicked() {
                                 self.selected_id = Some(a.id);
